@@ -52,12 +52,18 @@ end
 
 include_recipe "munin::client"
 
-sysadmins = search(:users, 'groups:sysadmin')
-if node['munin']['multi_environment_monitoring']
-  munin_servers = search(:node, "munin:[* TO *]")
+if Chef::Config[:solo] or node['munin']['single_host_monitoring']
+  munin_servers = [node]
+  sysadmins = node['munin']['htpasswd_users']
 else
-  munin_servers = search(:node, "munin:[* TO *] AND chef_environment:#{node.chef_environment}")
+  sysadmins = search(:users, 'groups:sysadmin')
+  if node['munin']['multi_environment_monitoring']
+    munin_servers = search(:node, "munin:[* TO *]")
+  else
+    munin_servers = search(:node, "munin:[* TO *] AND chef_environment:#{node.chef_environment}")
+  end
 end
+
 if munin_servers.empty?
   Chef::Log.info("No nodes returned from search, using this node so munin configuration has data")
   munin_servers = Array.new
@@ -126,5 +132,6 @@ directory node['munin']['docroot'] do
   owner "munin"
   group "munin"
   mode 0755
+  recursive true
 end
 

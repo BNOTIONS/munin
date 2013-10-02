@@ -17,15 +17,21 @@
 # limitations under the License.
 #
 
-if node['munin']['multi_environment_monitoring']
-  munin_servers = search(:node, "role:#{node['munin']['server_role']}")
+if Chef::Config[:solo] or node['munin']['single_host_monitoring']
+  munin_servers = [node]
 else
-  munin_servers = search(:node, "role:#{node['munin']['server_role']} AND chef_environment:#{node.chef_environment}")
+  if node['munin']['multi_environment_monitoring']
+    munin_servers = search(:node, "role:#{node['munin']['server_role']}")
+  else
+    munin_servers = search(:node, "role:#{node['munin']['server_role']} AND chef_environment:#{node.chef_environment}")
+  end
 end
 
 munin_servers.sort! { |a,b| a[:name] <=> b[:name] }
 
 package "munin-node"
+
+service_name = node['munin']['service_name']
 
 template "#{node['munin']['basedir']}/munin-node.conf" do
   source "munin-node.conf.erb"
@@ -41,8 +47,6 @@ when "arch", "smartos"
     notifies :restart, "service[#{service_name}]"
   end
 end
-
-service_name = node['munin']['service_name']
 
 service service_name do
   supports :restart => true
